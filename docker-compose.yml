@@ -1,0 +1,10 @@
+version: "2.2"
+services:
+
+  vault:
+    image: library/vault
+    stop_signal: SIGINT
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - 8200:8200
