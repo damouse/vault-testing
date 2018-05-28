@@ -33,6 +33,28 @@ Set and read secrets:
 ./vault kv get secret/hello
 ```
 
+PKI Quickstart
+
+```bash
+# Change the root lease to 10 years
+./vault secrets tune -max-lease-ttl=87600h pki
+
+# Generate the root cert
+./vault write pki/root/generate/internal common_name=myvault.com ttl=87600h
+
+# Set CRL and issuing URLs
+./vault write pki/config/urls issuing_certificates="http://127.0.0.1:8200/v1/pki/ca" crl_distribution_points="http://127.0.0.1:8200/v1/pki/crl"
+
+# Configure a role (maps to a policy)
+./vault write pki/roles/example-dot-com \
+    allowed_domains=example.com \
+    allow_subdomains=true max_ttl=72h
+
+# Issue a new cert under the newly created role 
+./vault write pki/issue/example-dot-com \
+    common_name=blah.example.com
+```
+
 ## Resources
 
 This might be a useful [link](https://www.melvinvivas.com/secrets-management-using-docker-hashicorp-vault/) for setting up the container with config and intended caps.
@@ -43,11 +65,9 @@ The official [pki docs](https://www.vaultproject.io/docs/secrets/pki/index.html)
 
 ## TODO
 
-- Set up basic PKI
-- Test generating intermediate certificates
-- Test validating those certificates outside of vault
+- Cert validation in python 
 - Revocation
-- Reissuance
+- Refresh (ideally with the same keys)
 - Plan API for developer and other intermediate issuance
 
 ## Scratch
