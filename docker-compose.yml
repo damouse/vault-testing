@@ -8,3 +8,10 @@ services:
       - IPC_LOCK
     ports:
       - 8200:8200
+    volumes:
+      - ./config:/vault/config
+      - ./data:/vault/file
+
+    # Comment this in to start in "production" mode
+    command: ['vault', 'server', '-config=/vault/config/local.json']
+    # command: vault server -dev --config /config/local.json

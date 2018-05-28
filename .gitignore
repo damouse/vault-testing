@@ -335,3 +335,5 @@ out.txt
 robot/snowbot/utils/steeringCalibration.txt
 
 *.pytest_cache
+
+vault
