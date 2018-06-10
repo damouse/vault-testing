@@ -16,7 +16,6 @@ def connect_test():
 
 
 def examine_certs():
-
     cert_file = 'scratch/root.pem'
     cert = crypto.load_certificate(crypto.FILETYPE_PEM, open(cert_file).read())
     pubKeyObject = cert.get_pubkey()
@@ -27,6 +26,7 @@ def examine_certs():
     print('Public key: ', crypto.dump_publickey(crypto.FILETYPE_PEM, pubKeyObject))
 
     # Validation: https://gist.github.com/uilianries/0459f59287bd63e49b1b8ef03b30d421
+    # See here for full trust chain checking: http://aviadas.com/blog/2015/06/18/verifying-x509-certificate-chain-of-trust-in-python/
 
 
 def examine_revocation():
