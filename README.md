@@ -110,6 +110,22 @@ Create a new role and issue a new cert under it:
 ./vault write pki/issue/developer common_name=mickey.developer.lhr 
 ```
 
+Note to self: this one might be useful for provisioning, but since keys are returned and exist on the device, its a little less secure.
+
+Create a CSR outside of vault and pass it to vault for signing:
+
+```bash
+# Create new key (the one-line form might work here, too)
+openssl genrsa -out keys/brian.key 4096
+
+# Create CSR with pre-filled subject
+openssl req -new -key keys/brian.key -out keys/brian.csr -subj "/C=GB/ST=London/L=London/O=Global Security/OU=IT Department/CN=brian.developer.lhr"
+
+./vault write pki/sign/developer \
+    common_name=brian.developer.lhr \
+    csr="$(cat keys/brian.csr)"
+```
+
 ## Misc Useful Commands
 
 Examine a CSR: 
@@ -158,11 +174,10 @@ The official [pki docs](https://www.vaultproject.io/docs/secrets/pki/index.html)
 
 ## TODO
 
-- Cert validation in python 
 - Revocation
 - Refresh (ideally with the same keys)
 - Plan API for developer and other intermediate issuance
-
+- Authentication WITH vault via certificate
 
 ## Scratch
 
