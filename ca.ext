@@ -1,4 +1,3 @@
-keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
 basicConstraints=critical,CA:TRUE,pathlen:1
 subjectAltName=DNS:vault.lhr
 
