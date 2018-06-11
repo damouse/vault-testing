@@ -4,7 +4,7 @@ This is a testing respository solely used to get used to working with Vault. Its
 
 ## Setup 
 
-Download the command line tool with: 
+Download the command line tool (linux): 
 
 ```
 wget https://releases.hashicorp.com/vault/0.10.1/vault_0.10.1_linux_amd64.zip
@@ -37,7 +37,7 @@ Initial Root Token: 73525826-cda0-b580-f93b-cec000e22c24
 Export the token from the output above and the URL of the running instance for the command line tool:
 
 ```
-export VAULT_TOKEN=2834fea9-e0e3-7114-19da-90ef289bbd96
+export VAULT_TOKEN=216c2622-43f9-731e-f673-624f0d0145d3
 export VAULT_ADDR='http://127.0.0.1:8200'
 ```
 
@@ -87,14 +87,14 @@ PKI Quickstart with self-signed root:
     common_name=blah.example.com
 ```
 
-PKI Quickstart with external root CA:
+PKI Quickstart with external root CA using intermediate endpoint (prefer this):
 
 ```bash
 # Generate root keypair
-openssl genrsa -out keys/root.lhr.key 4096
+openssl genrsa -out keys/lhr.key 4096
 
 # Generate self-signed root cert
-openssl req -new  -x509 -key keys/root.lhr.key -out keys/root.lhr.crt
+openssl req -new -config ca.conf -x509 -key keys/lhr.key -out keys/lhr.crt
 
 # Generate intermediate CSR. Copy the resulting CSR into a file keys/vault.csr
 ./vault write pki/intermediate/generate/internal \
@@ -102,17 +102,14 @@ openssl req -new  -x509 -key keys/root.lhr.key -out keys/root.lhr.crt
     ttl=87600h \
     key_bits=4096
 
-# Sign the intermediate vault cert using the self-signed root
-# NOTE: this doesn't sign it as a CA
-# Consider just generating the cert outside of vault and then uploading it and the key
-openssl x509 -req -in keys/vault.csr -CA keys/root.lhr.crt -CAkey keys/root.lhr.pem -CAcreateserial -out keys/vault.crt -days 365 
+# Sign the intermediate vault cert using the self-signed root. Ca.ext required in order to validate the extensions
+openssl x509 -req -in keys/vault.internal.csr -CA keys/lhr.crt -CAkey keys/lhr.key -CAcreateserial -out keys/vault.crt -extfile ca.ext 
 
 # Pass the newly signed cert into vault
-./vault write pki/intermediate/set-signed \
-    certificate="$(cat keys/vault.crt)"
+./vault write pki/intermediate/set-signed certificate="$(cat keys/vault.crt)"
 ```
 
-Since I'm having trouble siging the intermediate, this generates the root cert and keys in one step, ensuring CA:true is set under extensions. This method doesn't go through the intermediate generation from vault.
+Since I'm having trouble siging the intermediate, this generates the root cert and keys in one step, ensuring CA:true is set under extensions. This method doesn't go through the intermediate generation from vault. It also doesn't correctly send the cert back up to vault.
 
 ```bash
 # Generate a key for the CA
@@ -121,14 +118,39 @@ openssl genrsa -out keys/vault.key 4096
 # CSR
 openssl req -config ca.conf -new -key keys/vault.key -out keys/vault.csr
 
-<!-- openssl req -x509 -config ca.conf -newkey rsa:4096 -sha256 -nodes -out keys/vault.pem -outform PEM -->
-
 # Sign the cert, ensuring that CA:TRUE is set
-openssl x509 -req -in keys/vault.csr -CA keys/root.lhr.crt -CAkey keys/root.lhr.pem -CAcreateserial -out keys/vault.crt -days 3650 -outform PEM
+openssl x509 -req -in keys/vault.csr -CA keys/root.lhr.crt -CAkey keys/root.lhr.pem -CAcreateserial -out keys/vault.crt -days 3650
 
 # Upload the cert and key to vault. NOTE: the resulting file is not the right format. Also the included keys are not what vault is expecting
 ./vault write pki/config/ca \
-    pem_bundle="$(cat keys/vault.key)\n\n$(cat keys/vault.crt)"
+    pem_bundle="$(cat keys/vault.key)\n$(cat keys/vault.crt)"
+```
+
+Attempt #3, Root CA:
+
+```bash
+# Keys, vault and root
+openssl genrsa -out keys/lhr.key 4096
+openssl genrsa -out keys/vault.key 4096
+
+# Generate root cert
+openssl req -x509 -new -config ca.conf -key keys/lhr.key -out keys/lhr.crt 
+
+# Generate a CSR
+openssl req -config ca.conf -new -key keys/vault.key -out keys/vault.csr
+
+# Sign the CSR (WORKS!)
+openssl x509 -req -in keys/vault.csr -CA keys/lhr.crt -CAkey keys/lhr.key -CAcreateserial -out keys/vault.crt -days 3650 -extfile ca.ext 
+
+# Upload the cert and keys to vault (note: this command doesnt work-- just copy and paste the cert and key into a string)
+./vault write pki/config/ca \
+    pem_bundle="$(cat keys/vault.crt)\n$(cat keys/vault.key)"
+```
+
+Trying with internal vault CSR:
+
+```
+
 ```
 
 ## Misc Useful Commands
@@ -177,4 +199,19 @@ The official [pki docs](https://www.vaultproject.io/docs/secrets/pki/index.html)
 - Revocation
 - Refresh (ideally with the same keys)
 - Plan API for developer and other intermediate issuance
+
+
+## Scratch
+
+For my local mac machine: 
+
+```
+Unseal Key 1: kcdm7d3po4J1eYiKzeR8O8LslwgLEREnDfKHN0rT3md/
+Unseal Key 2: HJIAOb9GE3nM9YIsSP7xg4psgMED4JYd2gglwvFGBfuC
+Unseal Key 3: 5anDtCWj7LHTItv1WFH6d/mCqrSek4ns8OxD3N/lluJN
+Unseal Key 4: AC25iLawrw6Tjtok8E/udGwcACcuIEm54YhJpjv5FDAb
+Unseal Key 5: qCLbIjdiIhw76AczMq8EaHBvwvGjFGrWwaujRGnDnmqS
+
+Initial Root Token: 216c2622-43f9-731e-f673-624f0d0145d3
+```
 
