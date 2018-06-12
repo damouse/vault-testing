@@ -172,6 +172,8 @@ The official [pki docs](https://www.vaultproject.io/docs/secrets/pki/index.html)
 
 [Vault PKI tutorial](https://blog.kintoandar.com/2015/11/vault-PKI-made-easy.html).
 
+On getting python websockets to use [self-signed certs](https://websockets.readthedocs.io/en/stable/intro.html#secure-example) as a client or a server.
+
 ## TODO
 
 - Revocation
