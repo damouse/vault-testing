@@ -51,12 +51,7 @@ python tester.py
 
 ## Tasks
 
-#### Set and read secrets:
-
-```
-./vault kv put secret/hello foo=world
-./vault kv get secret/hello
-```
+### PKI
 
 ### Setting up PKI
 
@@ -96,6 +91,33 @@ The vault command line tool uses `/pki/cert/ca`, but normal HTTP endpoints shoul
 ./vault read /pki/cert/ca
 ```
 
+
+Create a CSR outside of vault and pass it to vault for signing:
+
+```bash
+# Create new key (the one-line form might work here, too)
+openssl genrsa -out keys/brian.key 4096
+
+# Create CSR with pre-filled subject
+openssl req -new -key keys/brian.key -out keys/brian.csr -subj "/C=GB/ST=London/L=London/O=Global Security/OU=IT Department/CN=brian.developer.lhr"
+
+./vault write pki/sign/developer \
+    common_name=brian.developer.lhr \
+    csr="$(cat keys/brian.csr)"
+```
+
+
+### Policies and Roles
+
+See [policy documentation](https://www.vaultproject.io/docs/concepts/policies.html#creating-policies)
+
+Read current roles: 
+
+```
+vault read sys/policy
+```
+
+
 Create a new role and issue a new cert under it:
 
 ```bash
@@ -112,19 +134,39 @@ Create a new role and issue a new cert under it:
 
 Note to self: this one might be useful for provisioning, but since keys are returned and exist on the device, its a little less secure.
 
-Create a CSR outside of vault and pass it to vault for signing:
+
+### Authentication
+
+[Auth docs](https://www.vaultproject.io/docs/auth/cert.html).
+
+Enable certificate auth:
 
 ```bash
-# Create new key (the one-line form might work here, too)
-openssl genrsa -out keys/brian.key 4096
-
-# Create CSR with pre-filled subject
-openssl req -new -key keys/brian.key -out keys/brian.csr -subj "/C=GB/ST=London/L=London/O=Global Security/OU=IT Department/CN=brian.developer.lhr"
-
-./vault write pki/sign/developer \
-    common_name=brian.developer.lhr \
-    csr="$(cat keys/brian.csr)"
+vault auth enable cert
 ```
+
+Set a trusted cert to auth against. Here I'm just using the vault's cert, but I'm not sure it will work. NOTE: this has to be on TLS.
+
+```bash
+# Create a default login profile. This may not have any roles attached to it
+./vault write auth/cert/certs/default \
+    certificate="$(cat keys/vault.crt)" \
+    ttl=3600
+
+# Try to login 
+./vault login \
+    -method=cert \
+    -client-cert=keys/brian.crt \
+    -client-key=keys/brian.key 
+```
+
+Ok, I'm not sure I understand this. So I can't sign certs with a single CA and then distribute them with ACLs derived in some other way? It seems the cert system requires that each possible role have its own certificate, right?
+
+Does that mean I have to make a sub CA for each one and host it at a different PKI endpoint? Seems clunky, but maybe I'm missing something. 
+
+There's also another possibility: skip auth, distribute SSH for now, and come back later for the rest of Vault.
+
+Actually, [token authentication](https://www.vaultproject.io/api/auth/token/index.html) doesn't seem like a bad idea. Instead of CSRs and keys, 
 
 ## Misc Useful Commands
 
@@ -158,6 +200,21 @@ Validate a cert against its signer (only works against the root, not intermediat
 openssl verify -CAfile keys/lhr.crt keys/vault.crt 
 ```
 
+## Roles
+
+A role is a name assignment paired with an ACL. Here are the possible activities controlled by the vault:
+
+- Authenticate with the vault
+- Create new developer 
+- Create a copy of a developer's keys and certs
+- Create new device 
+- Grant SSH access to a device
+- Grant AWS access
+- Sign a build
+- Connect to MQTT
+- Upload build to ECR
+
+
 ## Resources
 
 This might be a useful [link](https://www.melvinvivas.com/secrets-management-using-docker-hashicorp-vault/) for setting up the container with config and intended caps.
@@ -178,8 +235,9 @@ On getting python websockets to use [self-signed certs](https://websockets.readt
 
 - Revocation
 - Refresh (ideally with the same keys)
-- Plan API for developer and other intermediate issuance
-- Authentication WITH vault via certificate
+- Distribution to Developers
+- Authenticating TO vault with certs
+- Role definitions
 
 ## Scratch
 
